@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini-CRM</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input { display: block; width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Форма входа -->
+        <div id="login-section">
+            <h2>Вход в CRM</h2>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Пароль">
+            <button onclick="login()">Войти</button>
+            <p id="login-error" style="color:red;"></p>
+        </div>
+
+        <!-- Интерфейс CRM -->
+        <div id="crm-section" class="hidden">
+            <h2>Клиенты</h2>
+            <button onclick="logout()" style="background:#dc3545; float:right;">Выйти</button>
+            <input type="text" id="client-name" placeholder="Имя клиента">
+            <input type="text" id="client-phone" placeholder="Телефон">
+            <button onclick="addClient()">Добавить клиента</button>
+            
+            <table id="clients-table">
+                <thead>
+                    <tr><th>ID</th><th>Имя</th><th>Телефон</th></tr>
+                </thead>
+                <tbody id="clients-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const res = await fetch('http://localhost:3000/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                localStorage.setItem('token', data.token);
+                token = data.token;
+                showCRM();
+            } else {
+                document.getElementById('login-error').innerText = data.error;
+            }
+        }
+
+        function showCRM() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('crm-section').classList.remove('hidden');
+            loadClients();
+        }
+
+        async function loadClients() {
+            const res = await fetch('http://localhost:3000/api/clients', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const clients = await res.json();
+            const tbody = document.getElementById('clients-body');
+            tbody.innerHTML = '';
+
+            clients.forEach(c => {
+                tbody.innerHTML += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.phone || '-'}</td></tr>`;
+            });
+        }
+
+        async function addClient() {
+            const name = document.getElementById('client-name').value;
+            const phone = document.getElementById('client-phone').value;
+
+            await fetch('http://localhost:3000/api/clients', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token 
+                },
+                body: JSON.stringify({ name, phone })
+            });
+            document.getElementById('client-name').value = '';
+            document.getElementById('client-phone').value = '';
+            loadClients();
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            location.reload();
+        }
+
+        if (token) showCRM();
+    </script>
+</body>
+</html>
